@@ -16,42 +16,49 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v5
 
-      - name: Get latest release APK
+      - name: Download latest release APK
+        shell: bash
         run: |
-          mkdir temp
+          set -e
+
+          mkdir -p temp
           cd temp
 
-          # Get release JSON
-          curl -s https://api.github.com/repos/RookieEnough/Morphe-AutoBuilds/releases/latest > release.json
+          echo "Getting latest release JSON..."
 
-          # Find ONLY youtube-universal-morphe APK
-          APK_URL=$(grep browser_download_url release.json | grep 'youtube-universal-morphe-.*\.apk' | cut -d '"' -f 4 | head -n 1)
+          curl -L -o release.json \
+          https://api.github.com/repos/RookieEnough/Morphe-AutoBuilds/releases/latest
 
-          echo "APK URL:"
-          echo $APK_URL
+          echo "Searching for YouTube APK..."
 
-          # Download APK
-          wget -O latest.apk "$APK_URL"
+          APK_URL=$(cat release.json | grep browser_download_url | grep youtube-universal-morphe | grep '\.apk' | cut -d '"' -f 4 | head -n 1)
+
+          if [ -z "$APK_URL" ]; then
+            echo "ERROR: APK URL not found"
+            cat release.json
+            exit 1
+          fi
+
+          echo "Found APK:"
+          echo "$APK_URL"
+
+          wget -O youtube-morphe-latest.apk "$APK_URL"
 
       - name: Remove old APKs
-        run: |
-          rm -f *.apk
+        run: rm -f *.apk
 
       - name: Move new APK
-        run: |
-          mv temp/latest.apk ./
-
-      - name: Rename APK
-        run: |
-          mv latest.apk youtube-morphe-latest.apk
+        run: mv temp/youtube-morphe-latest.apk ./
 
       - name: Commit and push
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
 
-          git add .
+          git add youtube-morphe-latest.apk
 
-          git diff --cached --quiet || git commit -m "Update latest YouTube Morphe APK"
+          git diff --cached --quiet && echo "No changes" && exit 0
+
+          git commit -m "Update latest YouTube Morphe APK"
 
           git push
