@@ -1,0 +1,57 @@
+name: Sync Latest YouTube Morphe APK
+
+on:
+  schedule:
+    - cron: "0 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Get latest release APK
+        run: |
+          mkdir temp
+          cd temp
+
+          # Get release JSON
+          curl -s https://api.github.com/repos/RookieEnough/Morphe-AutoBuilds/releases/latest > release.json
+
+          # Find ONLY youtube-universal-morphe APK
+          APK_URL=$(grep browser_download_url release.json | grep 'youtube-universal-morphe-.*\.apk' | cut -d '"' -f 4 | head -n 1)
+
+          echo "APK URL:"
+          echo $APK_URL
+
+          # Download APK
+          wget -O latest.apk "$APK_URL"
+
+      - name: Remove old APKs
+        run: |
+          rm -f *.apk
+
+      - name: Move new APK
+        run: |
+          mv temp/latest.apk ./
+
+      - name: Rename APK
+        run: |
+          mv latest.apk youtube-morphe-latest.apk
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+
+          git add .
+
+          git diff --cached --quiet || git commit -m "Update latest YouTube Morphe APK"
+
+          git push
